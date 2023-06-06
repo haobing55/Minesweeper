@@ -1,13 +1,15 @@
 <script setup lang="ts">
 interface BlockState {
+  length?: number
   revealed?: boolean
   mine?: boolean
   adjacentMines?: number
+  [key: string]: any
 }
 const Height = 10
 const Width = 10
-const state = reactive(Array.from({ length: Height }, (_, y) =>
-  Array.from({ length: Width }, (_, x): BlockState => ({ adjacentMines: 0, revealed: false })),
+const state = reactive(Array.from({ length: Height }, () =>
+  Array.from({ length: Width }, (): BlockState => ({ adjacentMines: 0, revealed: false })),
 ))
 function generateMines() {
   for (const row of state) {
@@ -15,9 +17,9 @@ function generateMines() {
       block.mine = Math.random() < 0.3
   }
 }
-function calculateadjacentMines(Array) {
+function calculateadjacentMines(Array: Array<BlockState>) {
   const rows = Array.length
-  const cols = Array[0].length
+  const cols: number = Array[0]?.length ?? 0 // 如果Array[0]存在，则取其长度；否则，将长度默认为0
 
   const directions = [
     [-1, -1], [-1, 0], [-1, 1],
@@ -65,7 +67,7 @@ function updateBlockClass(block: BlockState) {
   if (!block.revealed)
     return ''
   else
-    return block.mine ? 'bg-red/50' : numberColors[block.adjacentMines]
+    return block.mine ? 'bg-red/50' : numberColors[block.adjacentMines ?? -1]
 }
 function onClick(block: BlockState) {
   // console.log('clicked x:', x, 'y:', y)
@@ -77,7 +79,7 @@ calculateadjacentMines(state)
 
 <template>
   <div>
-    Mineswepper
+    Minesweeper
     <div p5>
       <div
         v-for="row, y in state"
@@ -92,7 +94,6 @@ calculateadjacentMines(state)
           border="0.5 gray-400/10"
           :class="updateBlockClass(block)"
           m="0.5"
-
           min-h-8 min-w-8 items-center justify-center
           hover="bg-gray/10"
           @click="onClick(block)"
