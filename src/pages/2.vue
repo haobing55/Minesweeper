@@ -2,17 +2,27 @@
 interface BlockState {
   x: number
   y: number
-  length?: number
-  revealed?: boolean
+  revealed: boolean
   mine?: boolean
-  adjacentMines?: number
-  [key: string]: any
+  flagged?: boolean
+  adjacentMines: number
 }
-const Height = 10
-const Width = 10
-const state = reactive(Array.from({ length: Height }, (_, y) =>
-  Array.from({ length: Width }, (_, x): BlockState => ({ x, y, adjacentMines: 0, revealed: false })),
-))
+
+const WIDTH = 10
+const HEIGHT = 10
+const state = reactive(
+  Array.from({ length: HEIGHT }, (_, y) =>
+    Array.from({ length: WIDTH },
+      (_, x): BlockState => ({
+        x,
+        y,
+        adjacentMines: 0,
+        revealed: false,
+      }),
+    ),
+  ),
+)
+
 function generateMines(initial: BlockState) {
   for (const row of state) {
     for (const block of row) {
@@ -20,40 +30,23 @@ function generateMines(initial: BlockState) {
         continue
       if (Math.abs(initial.y - block.y) <= 1)
         continue
-      block.mine = Math.random() < 0.3
+      block.mine = Math.random() < 0.2
     }
   }
-  calculateadjacentMines(state)
+  updateNumbers()
 }
 
-function expendZero(block: BlockState) {
-  if (block.adjacentMines)
-    return
-  getSiblings(block).forEach((s) => {
-    if (!s.revealed) {
-      s.revealed = true
-      expendZero(s)
-    }
-  })
-}
 const directions = [
-  [-1, -1], [-1, 0], [-1, 1],
-  [0, -1], [0, 1],
-  [1, -1], [1, 0], [1, 1],
+  [1, 1],
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+  [0, 1],
 ]
-function calculateadjacentMines() {
-  state.forEach((raw, y) => {
-    raw.forEach((block, x) => {
-      if (block.mine)
-        return
-      getSiblings(block)
-        .forEach((b) => {
-          if (b.mine)
-            block.adjacentMines += 1
-        })
-    })
-  })
-}
+
 const numberColors = [
   'text-transparent',
   'text-blue-500',
@@ -66,31 +59,63 @@ const numberColors = [
   'text-teal-500',
 ]
 
-function updateBlockClass(block: BlockState) {
-  if (!block.revealed)
-    return 'bg-gray-500/50'
-  else
-    return block.mine ? 'bg-red/50' : numberColors[block.adjacentMines ?? -1]
+function updateNumbers() {
+  state.forEach((raw, y) => {
+    raw.forEach((block, x) => {
+      if (block.mine)
+        return
+      getSiblings(block)
+        .forEach((b) => {
+          if (b.mine)
+            block.adjacentMines += 1
+        })
+    })
+  })
 }
+
+function expendZero(block: BlockState) {
+  if (block.adjacentMines)
+    return
+
+  getSiblings(block).forEach((s) => {
+    if (!s.revealed) {
+      s.revealed = true
+      expendZero(s)
+    }
+  })
+}
+
 let mineGenerated = false
-const dev = false
+const dev = true
+
 function onClick(block: BlockState) {
-  // console.log('clicked x:', x, 'y:', y)
   if (!mineGenerated) {
     generateMines(block)
     mineGenerated = true
   }
+
   block.revealed = true
   if (block.mine)
-    alert('What a pity:you lost!')
+    alert('BOOOOM!')
   expendZero(block)
 }
+
+function getBlockClass(block: BlockState) {
+  if (!block.revealed)
+    return 'bg-gray-500/10'
+
+  return block.mine
+    ? 'bg-red-500/50'
+    : numberColors[block.adjacentMines]
+}
+
 function getSiblings(block: BlockState) {
   return directions.map(([dx, dy]) => {
     const x2 = block.x + dx
     const y2 = block.y + dy
-    if (x2 < 0 || x2 >= Width || y2 < 0 || y2 >= Height)
+    if (x2 < 0 || x2 >= WIDTH || y2 < 0 || y2 >= HEIGHT)
       return undefined
+
     return state[y2][x2]
   })
     .filter(Boolean) as BlockState[]
@@ -108,18 +133,17 @@ function getSiblings(block: BlockState) {
         items-center justify-center
       >
         <button
-          v-for="block, x in row"
-          :key="x"
+          v-for="block, x in row" :key="x"
           flex="~"
-          border="0.5 gray-400/10"
-          :class="updateBlockClass(block)"
-          m="0.5"
-          min-h-8 min-w-8 items-center justify-center
+
+          h-10 w-10 items-center justify-center m="0.5"
           hover="bg-gray/10"
+          border="1 gray-400/10"
+          :class="getBlockClass(block)"
           @click="onClick(block)"
         >
           <template v-if="block.revealed || dev">
-            <div v-if="block.mine" i-mdi:mine />
+            <div v-if="block.mine" i-mdi-mine />
             <div v-else>
               {{ block.adjacentMines }}
             </div>
