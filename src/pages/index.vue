@@ -1,5 +1,7 @@
 <script setup lang="ts">
 interface BlockState {
+  x: number
+  y: number
   length?: number
   revealed?: boolean
   mine?: boolean
@@ -8,25 +10,40 @@ interface BlockState {
 }
 const Height = 10
 const Width = 10
-const state = reactive(Array.from({ length: Height }, () =>
-  Array.from({ length: Width }, (): BlockState => ({ adjacentMines: 0, revealed: false })),
+const state = reactive(Array.from({ length: Height }, (_, y) =>
+  Array.from({ length: Width }, (_, x): BlockState => ({ x, y, adjacentMines: 0, revealed: false })),
 ))
-function generateMines() {
+function generateMines(initial: BlockState) {
   for (const row of state) {
-    for (const block of row)
+    for (const block of row) {
+      if (Math.abs(initial.x - block.x) <= 1)
+        continue
+      if (Math.abs(initial.y - block.y) <= 1)
+        continue
       block.mine = Math.random() < 0.3
+    }
   }
+  calculateadjacentMines(state)
 }
+
+function expendZero(block: BlockState) {
+  if (block.adjacentMines)
+    return
+  getSiblings(block).forEach((s) => {
+    if (!s.revealed) {
+      s.revealed = true
+      expendZero(s)
+    }
+  })
+}
+const directions = [
+  [-1, -1], [-1, 0], [-1, 1],
+  [0, -1], [0, 1],
+  [1, -1], [1, 0], [1, 1],
+]
 function calculateadjacentMines(Array: Array<BlockState>) {
   const rows = Array.length
   const cols: number = Array[0]?.length ?? 0 // 如果Array[0]存在，则取其长度；否则，将长度默认为0
-
-  const directions = [
-    [-1, -1], [-1, 0], [-1, 1],
-    [0, -1], [0, 1],
-    [1, -1], [1, 0], [1, 1],
-  ]
-
   for (let i = 0; i < rows; i++) {
     for (let j = 0; j < cols; j++) {
       if (Array[i][j].mine)
@@ -65,16 +82,33 @@ const numberColors = [
 
 function updateBlockClass(block: BlockState) {
   if (!block.revealed)
-    return ''
+    return 'bg-gray-500/50'
   else
     return block.mine ? 'bg-red/50' : numberColors[block.adjacentMines ?? -1]
 }
+let mineGenerated = false
+const dev = false
 function onClick(block: BlockState) {
   // console.log('clicked x:', x, 'y:', y)
+  if (!mineGenerated) {
+    generateMines(block)
+    mineGenerated = true
+  }
   block.revealed = true
+  if (block.mine)
+    alert('What a pity:you lost!')
+  expendZero(block)
 }
-generateMines()
-calculateadjacentMines(state)
+function getSiblings(block: BlockState) {
+  return directions.map(([dx, dy]) => {
+    const x2 = block.x + dx
+    const y2 = block.y + dy
+    if (x2 < 0 || x2 >= Width || y2 < 0 || y2 >= Height)
+      return undefined
+    return state[y2][x2]
+  })
+    .filter(Boolean) as BlockState[]
+}
 </script>
 
 <template>
@@ -98,7 +132,7 @@ calculateadjacentMines(state)
           hover="bg-gray/10"
           @click="onClick(block)"
         >
-          <template v-if="block.revealed">
+          <template v-if="block.revealed || dev">
             <div v-if="block.mine" i-mdi:mine />
             <div v-else>
               {{ block.adjacentMines }}
