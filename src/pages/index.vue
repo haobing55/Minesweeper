@@ -1,20 +1,13 @@
 <script setup lang="ts">
-interface BlockState {
-  x: number
-  y: number
-  length?: number
-  revealed?: boolean
-  mine?: boolean
-  adjacentMines?: number
-  [key: string]: any
-}
-const Height = 10
-const Width = 10
-const state = reactive(Array.from({ length: Height }, (_, y) =>
+import type { BlockState } from '~/types'
+
+const Height = 5
+const Width = 5
+const state = ref(Array.from({ length: Height }, (_, y) =>
   Array.from({ length: Width }, (_, x): BlockState => ({ x, y, adjacentMines: 0, revealed: false })),
 ))
 function generateMines(initial: BlockState) {
-  for (const row of state) {
+  for (const row of state.value) {
     for (const block of row) {
       if (Math.abs(initial.x - block.x) <= 1)
         continue
@@ -42,7 +35,7 @@ const directions = [
   [1, -1], [1, 0], [1, 1],
 ]
 function calculateadjacentMines() {
-  state.forEach((raw, y) => {
+  state.value.forEach((raw, y) => {
     raw.forEach((block, x) => {
       if (block.mine)
         return
@@ -67,14 +60,21 @@ const numberColors = [
 ]
 
 function updateBlockClass(block: BlockState) {
+  if (block.flagged)
+    return 'bg-gray-500/10'
   if (!block.revealed)
-    return 'bg-gray-500/50'
+    return 'bg-gray-500/10 hover:bg-gray-500/20'
   else
     return block.mine ? 'bg-red/50' : numberColors[block.adjacentMines ?? -1]
 }
 let mineGenerated = false
-const dev = false
-function onClick(block: BlockState) {
+const dev = true
+function onRightClick(block: BlockState) {
+  if (block.revealed)
+    return
+  block.flagged = !block.flagged
+}
+function onClick(e: MouseEvent, block: BlockState) {
   // console.log('clicked x:', x, 'y:', y)
   if (!mineGenerated) {
     generateMines(block)
@@ -91,7 +91,7 @@ function getSiblings(block: BlockState) {
     const y2 = block.y + dy
     if (x2 < 0 || x2 >= Width || y2 < 0 || y2 >= Height)
       return undefined
-    return state[y2][x2]
+    return state.value[y2][x2]
   })
     .filter(Boolean) as BlockState[]
 }
@@ -116,9 +116,13 @@ function getSiblings(block: BlockState) {
           m="0.5"
           min-h-8 min-w-8 items-center justify-center
           hover="bg-gray/10"
-          @click="onClick(block)"
+          @click="onClick($event, block)"
+          @contextmenu.prevent="onRightClick(block)"
         >
-          <template v-if="block.revealed || dev">
+          <template v-if="block.flagged">
+            <div i-mdi-flag text-red />
+          </template>
+          <template v-else-if="block.revealed || dev">
             <div v-if="block.mine" i-mdi:mine />
             <div v-else>
               {{ block.adjacentMines }}
